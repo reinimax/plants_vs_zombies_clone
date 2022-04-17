@@ -132,7 +132,9 @@ class Defender {
   }
 
   shoot() {
-    projectiles.push(new Projectile(this.x, this.y, this.damage));
+    if (detectEnemiesOnRow(this.row)) {
+      projectiles.push(new Projectile(this.x, this.y, this.damage));
+    }
   }
 }
 
@@ -307,6 +309,11 @@ function getDefendersArray() {
     }
     return defendersArr;
   }, []);
+}
+
+/** Helper that detects if there are enemies on the defender's row */
+function detectEnemiesOnRow(row) {
+  return enemies.some(enemy => enemy.row === row);
 }
 
 // this function draws all the info about game state
