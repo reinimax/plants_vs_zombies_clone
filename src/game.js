@@ -6,13 +6,16 @@ const ctx = canvas.getContext('2d');
 const cellSize = 50;
 let mouseX = undefined;
 let mouseY = undefined;
-const cells = [];
-const projectiles = [];
+let cells = [];
+let projectiles = [];
 const numOfRows = 7;
 let enemies = [];
 let ressources = 300;
 // health of the base. If it falls below 0 the game is lost
 let baseHealth = 500;
+// victory points are awarded when an enemy is killed. If enough are reached, the player wins
+let victoryPoints = 0;
+let gameIsRunning = false;
 
 class Enemy {
   constructor(y) {
@@ -26,6 +29,7 @@ class Enemy {
     this.speed = 0.5;
     this.isMoving = true;
     this.row = y / cellSize;
+    this.victoryPoints = 5;
   }
 
   draw() {
@@ -65,7 +69,7 @@ function handleEnemies() {
     // remove dead enemies and grant ressources
     if (enemies[i].health <= 0) {
       ressources += enemies[i].worth;
-      // TODO grant victory points
+      victoryPoints += enemies[i].victoryPoints;
       enemies.splice(i, 1);
       i--;
       continue;
@@ -265,6 +269,10 @@ function handleProjectiles() {
 }
 
 function placeDefender(e) {
+  if (!gameIsRunning) {
+    return;
+  }
+
   let activeCellArr = cells.filter(cell => cell.isHoverdOver(mouseX, mouseY));
   if (activeCellArr.length !== 1) return;
 
@@ -321,9 +329,8 @@ function drawGameInfo() {
   ctx.fillStyle = '#000';
   ctx.font = '20px Arial';
   ctx.fillText('Ressources: ' + ressources, 10, 30);
-
-  ctx.font = '20px Arial';
   ctx.fillText('Health of base: ' + baseHealth, 200, 30);
+  ctx.fillText('Victory Points: ' + victoryPoints, 420, 30);
 }
 
 // handle collision detection between defenders and enemies
@@ -361,12 +368,90 @@ function handleCollisions() {
   }
 }
 
+function restartGame(e) {
+  // check if we clicked on the button
+  if (
+    !gameIsRunning &&
+    e.clientX >= canvas.width / 2 - 60 &&
+    e.clientX <= canvas.width / 2 + 60 &&
+    e.clientY >= canvas.height / 2 + 80 &&
+    e.clientY <= canvas.height / 2 + 120
+  ) {
+    gameIsRunning = true;
+    // reset the ctx text properties to their default
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'start';
+    // reset game variables
+    frames = 0;
+    enemies = [];
+    ressources = 300;
+    baseHealth = 500;
+    victoryPoints = 0;
+    cells = [];
+    projectiles = [];
+    gameLoop();
+    createCells();
+  }
+}
+
 let frames = 0;
 
 function gameLoop() {
+  // check if game is won or lost
+  if (baseHealth <= 0) {
+    gameIsRunning = false;
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    ctx.fillRect(0, 0, 600, 400);
+    ctx.fillStyle = '#FFF';
+    ctx.font = '30px Arial';
+    // center the text
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+
+    ctx.fillText(
+      'The enemies destroyed the base.',
+      canvas.width / 2,
+      canvas.height / 2 + 20
+    );
+    ctx.fillText('The game is lost!', canvas.width / 2, canvas.height / 2 - 20);
+    // draw restart button
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 + 80, 120, 40);
+    ctx.fillStyle = '#000';
+    ctx.font = '20px Arial';
+    ctx.fillText('PLAY AGAIN', canvas.width / 2, canvas.height / 2 + 100);
+    return;
+  } else if (victoryPoints >= 100) {
+    gameIsRunning = false;
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    ctx.fillRect(0, 0, 600, 400);
+    ctx.fillStyle = '#FFF';
+    ctx.font = '30px Arial';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      'The enemy forces suffered heavy losses',
+      canvas.width / 2,
+      canvas.height / 2 - 40
+    );
+    ctx.fillText('and are retreating.', canvas.width / 2, canvas.height / 2);
+    ctx.fillText(
+      'You are victorious!',
+      canvas.width / 2,
+      canvas.height / 2 + 40
+    );
+    // draw restart button
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 + 80, 120, 40);
+    ctx.fillStyle = '#000';
+    ctx.font = '20px Arial';
+    ctx.fillText('PLAY AGAIN', canvas.width / 2, canvas.height / 2 + 100);
+
+    return;
+  }
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawGameInfo();
   drawGrid();
   drawDefenders();
   handleProjectiles();
@@ -375,15 +460,42 @@ function gameLoop() {
   handleEnemies();
   handleCollisions();
   drawEnemies();
+  drawGameInfo();
 
   frames++;
 
   requestAnimationFrame(gameLoop);
 }
 
-gameLoop();
+//gameLoop();
 // create the cells once.
-createCells();
+//createCells();
+
+// draw the start screen
+ctx.fillStyle = 'rgba(0,0,0,.5)';
+ctx.fillRect(0, 0, 600, 400);
+ctx.fillStyle = '#FFF';
+ctx.font = '30px Arial';
+ctx.textBaseline = 'middle';
+ctx.textAlign = 'center';
+ctx.fillText(
+  'Enemies are attacking our base!',
+  canvas.width / 2,
+  canvas.height / 2 - 40
+);
+ctx.font = '20px Arial';
+ctx.fillText(
+  'Place defenders with the mouse to defend the base.',
+  canvas.width / 2,
+  canvas.height / 2
+);
+// draw restart button
+ctx.fillStyle = '#FFF';
+ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 + 80, 120, 40);
+ctx.fillStyle = '#000';
+ctx.font = '20px Arial';
+ctx.fillText('START', canvas.width / 2, canvas.height / 2 + 100);
 
 document.addEventListener('mousemove', highlightMouseCell);
 document.addEventListener('click', placeDefender);
+document.addEventListener('click', restartGame);
