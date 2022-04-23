@@ -5,5 +5,13 @@ module.exports = {
   output: {
     filename: 'script.js',
     path: path.resolve(__dirname, 'dist')
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(png|svg|jpg|jpeg|gif)$/i,
+        type: 'asset/resource'
+      }
+    ]
   }
 };
