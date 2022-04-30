@@ -1,4 +1,5 @@
 import enemy1SpriteSheet from './assets/sprites/enemy1.png';
+import Defender from './lib/Model/Defender';
 
 const canvas = document.querySelector('#canvas');
 canvas.width = 600;
@@ -9,7 +10,7 @@ const cellSize = 50;
 let mouseX = undefined;
 let mouseY = undefined;
 let cells = [];
-let projectiles = [];
+//let projectiles = [];
 const numOfRows = 7;
 let enemies = [];
 let ressources = 300;
@@ -170,58 +171,6 @@ function handleEnemies() {
   }
 }
 
-class Projectile {
-  constructor(x, y, damage) {
-    this.damage = damage;
-    this.x = x;
-    this.y = y;
-    this.width = 20;
-    this.height = 20;
-    this.row = y / cellSize;
-    this.speed = 0.5;
-  }
-
-  draw() {
-    this.x += this.speed;
-    ctx.fillStyle = '#FF0';
-    ctx.fillRect(
-      this.x + this.width / 2,
-      this.y + this.height / 2,
-      this.width,
-      this.height
-    );
-  }
-}
-
-class Defender {
-  static cost = 100;
-
-  constructor(x, y, width, height) {
-    this.health = 100;
-    this.damage = 20;
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-    this.row = y / cellSize;
-  }
-
-  draw() {
-    ctx.fillStyle = '#00F';
-    ctx.fillRect(this.x, this.y, this.width, this.height);
-    // draw health info
-    ctx.fillStyle = '#000';
-    ctx.font = '16px Arial';
-    ctx.fillText(this.health, this.x + 10, this.y + 30);
-  }
-
-  shoot() {
-    if (detectEnemiesOnRow(this.row)) {
-      projectiles.push(new Projectile(this.x, this.y, this.damage));
-    }
-  }
-}
-
 class Cell {
   constructor(x, y) {
     this.x = x;
@@ -318,37 +267,42 @@ function drawDefenders() {
       return;
     }
     cell.defender.draw();
-    if (frames % 150 == 0) cell.defender.shoot();
+    if (detectEnemiesOnRow(cell.defender.row) && frames % 150 == 0)
+      cell.defender.shoot();
   });
 }
 
 function handleProjectiles() {
-  for (let i = 0; i < projectiles.length; i++) {
-    projectiles[i].draw();
+  const defenders = getDefendersArray();
+  defenders.forEach(defender => {
+    for (let i = 0; i < defender.projectiles.length; i++) {
+      defender.projectiles[i].draw();
 
-    // if the projectile goes off screen, remove it
-    if (projectiles[i].x > canvas.width) {
-      projectiles.splice(i, 1);
-      i--;
-      continue;
-    }
-
-    // we use every here, because we cannot break out of forEach once we found a collision
-    enemies.every(enemy => {
-      if (
-        projectiles[i].x + projectiles[i].width >= enemy.x &&
-        projectiles[i].row === enemy.row
-      ) {
-        enemy.health -= projectiles[i].damage;
-        projectiles.splice(i, 1);
+      // if the projectile goes off screen, remove it
+      if (defender.projectiles[i].x > canvas.width) {
+        defender.projectiles.splice(i, 1);
         i--;
-        // return false to break out of every
-        return false;
+        continue;
       }
-      // return true to keep the loop going
-      return true;
-    });
-  }
+
+      // we use every here, because we cannot break out of forEach once we found a collision
+      enemies.every(enemy => {
+        if (
+          defender.projectiles[i].x + defender.projectiles[i].width >=
+            enemy.x &&
+          defender.projectiles[i].row === enemy.row
+        ) {
+          enemy.health -= defender.projectiles[i].damage;
+          defender.projectiles.splice(i, 1);
+          i--;
+          // return false to break out of every
+          return false;
+        }
+        // return true to keep the loop going
+        return true;
+      });
+    }
+  });
 }
 
 function placeDefender(e) {
@@ -385,7 +339,9 @@ function placeDefender(e) {
     activeCell.x,
     activeCell.y,
     activeCell.width,
-    activeCell.height
+    activeCell.height,
+    cellSize,
+    ctx
   );
   ressources -= Defender.cost;
 
@@ -471,7 +427,7 @@ function restartGame(e) {
     baseHealth = 500;
     victoryPoints = 0;
     cells = [];
-    projectiles = [];
+    //projectiles = [];
     gameLoop();
     createCells();
   }
