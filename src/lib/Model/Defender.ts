@@ -11,8 +11,17 @@ export default class Defender implements GameObjectInterface {
   ctx: CanvasRenderingContext2D;
   /** Array holding the projectiles of this defender */
   projectiles: Projectile[];
+  health: number;
+  damage: number;
 
-  constructor(x, y, width, height, cellSize, ctx) {
+  constructor(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    cellSize: number,
+    ctx: CanvasRenderingContext2D
+  ) {
     this.health = 100;
     this.damage = 20;
     this.x = x;
@@ -30,7 +39,7 @@ export default class Defender implements GameObjectInterface {
     // draw health info
     this.ctx.fillStyle = '#000';
     this.ctx.font = '16px Arial';
-    this.ctx.fillText(this.health, this.x + 10, this.y + 30);
+    this.ctx.fillText(this.health.toString(), this.x + 10, this.y + 30);
   }
 
   shoot() {

@@ -6,8 +6,16 @@ export default class Projectile implements GameObjectInterface {
   row: number;
   /** Reference to the drawing context */
   ctx: CanvasRenderingContext2D;
+  damage: number;
+  speed: number;
 
-  constructor(x, y, damage, row, ctx) {
+  constructor(
+    x: number,
+    y: number,
+    damage: number,
+    row: number,
+    ctx: CanvasRenderingContext2D
+  ) {
     this.damage = damage;
     this.x = x;
     this.y = y;
