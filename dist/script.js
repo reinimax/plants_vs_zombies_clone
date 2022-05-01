@@ -15,10 +15,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const enemy1_png_1 = __importDefault(__webpack_require__(/*! ./assets/sprites/enemy1.png */ "./src/assets/sprites/enemy1.png"));
 const Defender_1 = __importDefault(__webpack_require__(/*! ./lib/Model/Defender */ "./src/lib/Model/Defender.ts"));
+const ServiceContainer_1 = __importDefault(__webpack_require__(/*! ./lib/Core/ServiceContainer */ "./src/lib/Core/ServiceContainer.ts"));
+const CanvasManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/CanvasManager */ "./src/lib/Services/CanvasManager.ts"));
+const container = new ServiceContainer_1.default();
 const canvas = document.querySelector('#canvas');
 canvas.width = 600;
 canvas.height = 400;
 const ctx = canvas.getContext('2d');
+container.set('canvasManager', CanvasManager_1.default, canvas);
+const manager = container.get('canvasManager');
 const cellSize = 50;
 let mouseX = undefined;
 let mouseY = undefined;
@@ -466,6 +471,43 @@ document.addEventListener('click', restartGame);
 
 /***/ }),
 
+/***/ "./src/lib/Core/ServiceContainer.ts":
+/*!******************************************!*\
+  !*** ./src/lib/Core/ServiceContainer.ts ***!
+  \******************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+class ServiceContainer {
+    constructor() {
+        this.services = new Map();
+    }
+    set(name, service, ...params) {
+        if (typeof this.services.get(name) === 'function') {
+            throw new Error(`Key ${name} already exists in the service container.`);
+        }
+        this.services.set(name, function hi() {
+            // todo: it would be nice to optionally provide a singleton
+            return new service(...params);
+        });
+    }
+    get(name) {
+        const callback = this.services.get(name);
+        if (typeof callback === 'undefined') {
+            throw new Error(`Key ${name} does not exist.`);
+        }
+        if (typeof callback !== 'function') {
+            throw new Error(`Key ${name} does is not mapped to a function.`);
+        }
+        return callback();
+    }
+}
+exports.default = ServiceContainer;
+
+
+/***/ }),
+
 /***/ "./src/lib/Model/Defender.ts":
 /*!***********************************!*\
   !*** ./src/lib/Model/Defender.ts ***!
@@ -496,7 +538,7 @@ class Defender {
         // draw health info
         this.ctx.fillStyle = '#000';
         this.ctx.font = '16px Arial';
-        this.ctx.fillText(this.health, this.x + 10, this.y + 30);
+        this.ctx.fillText(this.health.toString(), this.x + 10, this.y + 30);
     }
     shoot() {
         this.projectiles.push(new Projectile_1.default(this.x, this.y, this.damage, this.row, this.ctx));
@@ -534,6 +576,25 @@ class Projectile {
     }
 }
 exports.default = Projectile;
+
+
+/***/ }),
+
+/***/ "./src/lib/Services/CanvasManager.ts":
+/*!*******************************************!*\
+  !*** ./src/lib/Services/CanvasManager.ts ***!
+  \*******************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+class CanvasManager {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = this.canvas.getContext('2d');
+    }
+}
+exports.default = CanvasManager;
 
 
 /***/ }),

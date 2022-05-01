@@ -1,10 +1,19 @@
 import enemy1SpriteSheet from './assets/sprites/enemy1.png';
 import Defender from './lib/Model/Defender';
 
+import ServiceContainer from './lib/Core/ServiceContainer';
+import CanvasManager from './lib/Services/CanvasManager';
+
+const container = new ServiceContainer();
+
 const canvas = document.querySelector('#canvas');
 canvas.width = 600;
 canvas.height = 400;
 const ctx = canvas.getContext('2d');
+
+container.set('canvasManager', CanvasManager, canvas);
+
+const manager = container.get('canvasManager');
 
 const cellSize = 50;
 let mouseX = undefined;
