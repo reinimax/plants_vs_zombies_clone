@@ -34,6 +34,13 @@ export default class CanvasManager {
     this.reset();
   }
 
+  public getCanvasWidth() {
+    return this.canvas.width;
+  }
+  public getCanvasHeight() {
+    return this.canvas.height;
+  }
+
   /**
    * Resets the canvas properties to their default state.
    * This function is meant to only be called within the service.

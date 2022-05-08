@@ -1,5 +1,5 @@
-import enemy1SpriteSheet from './assets/sprites/enemy1.png';
 import Defender from './lib/Model/Defender';
+import Spider from './lib/Model/Enemies/Spider';
 
 import ServiceContainer from './lib/Core/ServiceContainer';
 import CanvasManager from './lib/Services/CanvasManager';
@@ -9,10 +9,8 @@ const container = new ServiceContainer();
 const canvas = document.querySelector('#canvas');
 canvas.width = 600;
 canvas.height = 400;
-//const ctx = canvas.getContext('2d');
 
 container.set('canvasManager', CanvasManager, canvas);
-
 const canvasManager = container.get('canvasManager');
 
 const cellSize = 50;
@@ -29,106 +27,13 @@ let baseHealth = 500;
 let victoryPoints = 0;
 let gameIsRunning = false;
 
-class Enemy {
-  constructor(y) {
-    this.health = 100;
-    this.worth = 50;
-    this.damage = 20;
-    this.y = y;
-    this.x = canvas.width;
-    this.width = cellSize;
-    this.height = cellSize;
-    this.speed = 0.5;
-    this.isMoving = true;
-    this.row = y / cellSize;
-    this.victoryPoints = 5;
-    this.spriteSheet = new Image();
-    this.spriteSheet.src = enemy1SpriteSheet;
-    this.frameX = 0;
-    this.frameY = 25; // set start frame to the first frame of the walking animation
-    this.frameWidth = 258;
-    this.frameHeight = 258;
-    // first 15 animations have different height - account for that
-    this.frameOffset = 2910;
-
-    // "metadata" about the spritesheet. Since it will be different for every spritesheet, we have to connect it somehow
-    // to a specific spritesheet. Maybe save it a json and load it together with the corresponding spritesheet?
-    this.spriteSheetInfo = {
-      width: 258,
-      height: 6780,
-      animationSets: {
-        move: {
-          numOfSprites: 5,
-          currentSprite: 99, // set a number greater the numOfSprites so that on the first run, we reset it to 0
-          startX: 0,
-          startY: 5490,
-          sizeX: 258,
-          sizeY: 258
-        }
-      }
-    };
-
-    this.animation = null;
-  }
-
-  draw() {
-    this.animation = this.spriteSheetInfo.animationSets.move;
-    // debounce animation
-    if (frames % 10 === 0) {
-      // walking animation starts at sprite 25 and ends at sprite 29
-      if (this.frameY >= 29) {
-        this.frameY = 25;
-      } else {
-        this.frameY++;
-      }
-      // new try with animation variable
-      // we increment the sprite first and the check if it exceeds the limit. Keep in mind, it is 5 sprites here, but we
-      // start at 0! So we actually have indices 0-4. If the index reaches 5, we must reset it to 0.
-      // Another option is to keep the if-else structure, but then we need to move this code below the drawImage function!
-      // Otherwise this happens: we come in with index 4, which still triggers the else part of the statement. So we increment
-      // it to 5 and draw index 5 which is actually too big.
-      // We could also subtract -1 from numOfSprites in the if-statement to account for starting at 0. maybe this would be
-      // most reasonable.
-      this.animation.currentSprite++;
-      if (this.animation.currentSprite >= this.animation.numOfSprites) {
-        this.animation.currentSprite = 0;
-      } else {
-        //this.animation.currentSprite++;
-      }
-      //console.log(this.animation.currentSprite);
-    }
-
-    if (this.isMoving) {
-      this.x -= this.speed;
-    }
-
-    canvasManager.ctx.drawImage(
-      this.spriteSheet,
-      this.animation.startX,
-      this.animation.startY +
-        this.animation.currentSprite * this.animation.sizeY,
-      this.animation.sizeX,
-      this.animation.sizeY,
-      this.x,
-      this.y,
-      this.width,
-      this.height
-    );
-    // draw health info
-    canvasManager.drawText(this.health.toString(), this.x + 10, this.y + 20, {
-      fillStyle: '#000',
-      font: '16px Arial'
-    });
-  }
-}
-
 let once = false; // we used once variable to spawn only one enemy to debug animation
 function generateEnemies() {
   // we add cellsize to account for the uppermost part of the
   // canvas that is not part of the gamebord
   let randomRow = Math.floor(Math.random() * numOfRows) * cellSize + cellSize;
   if (frames % 150 === 0 && once === false) {
-    enemies.push(new Enemy(randomRow));
+    enemies.push(new Spider(randomRow, cellSize, canvasManager));
     //once = true;
   }
 }
@@ -362,8 +267,6 @@ function detectEnemiesOnRow(row) {
 
 // this function draws all the info about game state
 function drawGameInfo() {
-  //ctx.fillStyle = '#000';
-  //ctx.font = '20px Arial';
   canvasManager.drawText('Ressources: ' + ressources, 10, 30);
   canvasManager.drawText('Health of base: ' + baseHealth, 200, 30);
   canvasManager.drawText('Victory Points: ' + victoryPoints, 420, 30);
@@ -414,9 +317,6 @@ function restartGame(e) {
     e.clientY <= canvas.height / 2 + 120
   ) {
     gameIsRunning = true;
-    // reset the ctx text properties to their default
-    //ctx.textBaseline = 'alphabetic';
-    //ctx.textAlign = 'start';
     // reset game variables
     frames = 0;
     enemies = [];
@@ -424,7 +324,6 @@ function restartGame(e) {
     baseHealth = 500;
     victoryPoints = 0;
     cells = [];
-    //projectiles = [];
     gameLoop();
     createCells();
   }

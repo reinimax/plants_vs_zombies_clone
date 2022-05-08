@@ -13,15 +13,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const enemy1_png_1 = __importDefault(__webpack_require__(/*! ./assets/sprites/enemy1.png */ "./src/assets/sprites/enemy1.png"));
 const Defender_1 = __importDefault(__webpack_require__(/*! ./lib/Model/Defender */ "./src/lib/Model/Defender.ts"));
+const Spider_1 = __importDefault(__webpack_require__(/*! ./lib/Model/Enemies/Spider */ "./src/lib/Model/Enemies/Spider.ts"));
 const ServiceContainer_1 = __importDefault(__webpack_require__(/*! ./lib/Core/ServiceContainer */ "./src/lib/Core/ServiceContainer.ts"));
 const CanvasManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/CanvasManager */ "./src/lib/Services/CanvasManager.ts"));
 const container = new ServiceContainer_1.default();
 const canvas = document.querySelector('#canvas');
 canvas.width = 600;
 canvas.height = 400;
-//const ctx = canvas.getContext('2d');
 container.set('canvasManager', CanvasManager_1.default, canvas);
 const canvasManager = container.get('canvasManager');
 const cellSize = 50;
@@ -37,92 +36,13 @@ let baseHealth = 500;
 // victory points are awarded when an enemy is killed. If enough are reached, the player wins
 let victoryPoints = 0;
 let gameIsRunning = false;
-class Enemy {
-    constructor(y) {
-        this.health = 100;
-        this.worth = 50;
-        this.damage = 20;
-        this.y = y;
-        this.x = canvas.width;
-        this.width = cellSize;
-        this.height = cellSize;
-        this.speed = 0.5;
-        this.isMoving = true;
-        this.row = y / cellSize;
-        this.victoryPoints = 5;
-        this.spriteSheet = new Image();
-        this.spriteSheet.src = enemy1_png_1.default;
-        this.frameX = 0;
-        this.frameY = 25; // set start frame to the first frame of the walking animation
-        this.frameWidth = 258;
-        this.frameHeight = 258;
-        // first 15 animations have different height - account for that
-        this.frameOffset = 2910;
-        // "metadata" about the spritesheet. Since it will be different for every spritesheet, we have to connect it somehow
-        // to a specific spritesheet. Maybe save it a json and load it together with the corresponding spritesheet?
-        this.spriteSheetInfo = {
-            width: 258,
-            height: 6780,
-            animationSets: {
-                move: {
-                    numOfSprites: 5,
-                    currentSprite: 99,
-                    startX: 0,
-                    startY: 5490,
-                    sizeX: 258,
-                    sizeY: 258
-                }
-            }
-        };
-        this.animation = null;
-    }
-    draw() {
-        this.animation = this.spriteSheetInfo.animationSets.move;
-        // debounce animation
-        if (frames % 10 === 0) {
-            // walking animation starts at sprite 25 and ends at sprite 29
-            if (this.frameY >= 29) {
-                this.frameY = 25;
-            }
-            else {
-                this.frameY++;
-            }
-            // new try with animation variable
-            // we increment the sprite first and the check if it exceeds the limit. Keep in mind, it is 5 sprites here, but we
-            // start at 0! So we actually have indices 0-4. If the index reaches 5, we must reset it to 0.
-            // Another option is to keep the if-else structure, but then we need to move this code below the drawImage function!
-            // Otherwise this happens: we come in with index 4, which still triggers the else part of the statement. So we increment
-            // it to 5 and draw index 5 which is actually too big.
-            // We could also subtract -1 from numOfSprites in the if-statement to account for starting at 0. maybe this would be
-            // most reasonable.
-            this.animation.currentSprite++;
-            if (this.animation.currentSprite >= this.animation.numOfSprites) {
-                this.animation.currentSprite = 0;
-            }
-            else {
-                //this.animation.currentSprite++;
-            }
-            //console.log(this.animation.currentSprite);
-        }
-        if (this.isMoving) {
-            this.x -= this.speed;
-        }
-        canvasManager.ctx.drawImage(this.spriteSheet, this.animation.startX, this.animation.startY +
-            this.animation.currentSprite * this.animation.sizeY, this.animation.sizeX, this.animation.sizeY, this.x, this.y, this.width, this.height);
-        // draw health info
-        canvasManager.drawText(this.health.toString(), this.x + 10, this.y + 20, {
-            fillStyle: '#000',
-            font: '16px Arial'
-        });
-    }
-}
 let once = false; // we used once variable to spawn only one enemy to debug animation
 function generateEnemies() {
     // we add cellsize to account for the uppermost part of the
     // canvas that is not part of the gamebord
     let randomRow = Math.floor(Math.random() * numOfRows) * cellSize + cellSize;
     if (frames % 150 === 0 && once === false) {
-        enemies.push(new Enemy(randomRow));
+        enemies.push(new Spider_1.default(randomRow, cellSize, canvasManager));
         //once = true;
     }
 }
@@ -318,8 +238,6 @@ function detectEnemiesOnRow(row) {
 }
 // this function draws all the info about game state
 function drawGameInfo() {
-    //ctx.fillStyle = '#000';
-    //ctx.font = '20px Arial';
     canvasManager.drawText('Ressources: ' + ressources, 10, 30);
     canvasManager.drawText('Health of base: ' + baseHealth, 200, 30);
     canvasManager.drawText('Victory Points: ' + victoryPoints, 420, 30);
@@ -365,9 +283,6 @@ function restartGame(e) {
         e.clientY >= canvas.height / 2 + 80 &&
         e.clientY <= canvas.height / 2 + 120) {
         gameIsRunning = true;
-        // reset the ctx text properties to their default
-        //ctx.textBaseline = 'alphabetic';
-        //ctx.textAlign = 'start';
         // reset game variables
         frames = 0;
         enemies = [];
@@ -375,7 +290,6 @@ function restartGame(e) {
         baseHealth = 500;
         victoryPoints = 0;
         cells = [];
-        //projectiles = [];
         gameLoop();
         createCells();
     }
@@ -542,6 +456,111 @@ Defender.cost = 100;
 
 /***/ }),
 
+/***/ "./src/lib/Model/Enemies/Spider.ts":
+/*!*****************************************!*\
+  !*** ./src/lib/Model/Enemies/Spider.ts ***!
+  \*****************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const enemy1_png_1 = __importDefault(__webpack_require__(/*! ../../../assets/sprites/enemy1.png */ "./src/assets/sprites/enemy1.png"));
+const EnemyBase_1 = __importDefault(__webpack_require__(/*! ../EnemyBase */ "./src/lib/Model/EnemyBase.ts"));
+class Spider extends EnemyBase_1.default {
+    constructor(y, cellSize, canvasManager) {
+        super(y, cellSize, canvasManager);
+        this.spriteSheet.src = enemy1_png_1.default;
+        this.spriteSheetInfo = {
+            width: 258,
+            height: 6780,
+            animationSets: {
+                move: {
+                    numOfSprites: 5,
+                    currentSprite: 99,
+                    startX: 0,
+                    startY: 5490,
+                    sizeX: 258,
+                    sizeY: 258
+                }
+            }
+        };
+    }
+}
+exports.default = Spider;
+
+
+/***/ }),
+
+/***/ "./src/lib/Model/EnemyBase.ts":
+/*!************************************!*\
+  !*** ./src/lib/Model/EnemyBase.ts ***!
+  \************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+class EnemyBase {
+    constructor(y, cellSize, canvasManager) {
+        this.canvasManager = canvasManager;
+        this.health = 100;
+        this.worth = 50;
+        this.damage = 20;
+        this.y = y;
+        this.x = canvasManager.getCanvasWidth();
+        this.width = cellSize;
+        this.height = cellSize;
+        this.speed = 0.5;
+        this.isMoving = true;
+        this.row = y / cellSize;
+        this.victoryPoints = 5;
+        this.spriteSheet = new Image();
+        this.spriteSheetInfo = {};
+        this.animation = null;
+        this.debounce = 0;
+    }
+    draw() {
+        // todo add dying anmiation
+        if (this.isMoving) {
+            this.x -= this.speed;
+            this.animation = this.spriteSheetInfo.animationSets.move;
+        }
+        // if the enemy is not moving, it means it reached a defender and should therefore attack
+        else {
+            // todo add attack animation
+        }
+        // debounce animation
+        if (this.debounce % 10 === 0) {
+            // new try with animation variable
+            // we increment the sprite first and the check if it exceeds the limit. Keep in mind, it is 5 sprites here, but we
+            // start at 0! So we actually have indices 0-4. If the index reaches 5, we must reset it to 0.
+            // Another option is to keep the if-else structure, but then we need to move this code below the drawImage function!
+            // Otherwise this happens: we come in with index 4, which still triggers the else part of the statement. So we increment
+            // it to 5 and draw index 5 which is actually too big.
+            // We could also subtract -1 from numOfSprites in the if-statement to account for starting at 0. maybe this would be
+            // most reasonable.
+            this.animation.currentSprite++;
+            if (this.animation.currentSprite >= this.animation.numOfSprites) {
+                this.animation.currentSprite = 0;
+            }
+        }
+        this.canvasManager.ctx.drawImage(this.spriteSheet, this.animation.startX, this.animation.startY +
+            this.animation.currentSprite * this.animation.sizeY, this.animation.sizeX, this.animation.sizeY, this.x, this.y, this.width, this.height);
+        // draw health info
+        this.canvasManager.drawText(this.health.toString(), this.x + 10, this.y + 20, {
+            fillStyle: '#000',
+            font: '16px Arial'
+        });
+        this.debounce++;
+    }
+}
+exports.default = EnemyBase;
+
+
+/***/ }),
+
 /***/ "./src/lib/Model/Projectile.ts":
 /*!*************************************!*\
   !*** ./src/lib/Model/Projectile.ts ***!
@@ -599,6 +618,12 @@ class CanvasManager {
         }
         this.ctx.fillRect(x, y, width, height);
         this.reset();
+    }
+    getCanvasWidth() {
+        return this.canvas.width;
+    }
+    getCanvasHeight() {
+        return this.canvas.height;
     }
     /**
      * Resets the canvas properties to their default state.
