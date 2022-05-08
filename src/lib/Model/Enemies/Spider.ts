@@ -12,11 +12,27 @@ export default class Spider extends EnemyBase {
       animationSets: {
         move: {
           numOfSprites: 5,
-          currentSprite: 99, // set a number greater the numOfSprites so that on the first run, we reset it to 0
+          currentSprite: -1,
           startX: 0,
           startY: 5490,
           sizeX: 258,
           sizeY: 258
+        },
+        die: {
+          numOfSprites: 10,
+          currentSprite: -1,
+          startX: 0,
+          startY: 2940,
+          sizeX: 258,
+          sizeY: 258
+        },
+        attack: {
+          numOfSprites: 15,
+          currentSprite: -1,
+          startX: 0,
+          startY: 0,
+          sizeX: 258,
+          sizeY: 194
         }
       }
     };

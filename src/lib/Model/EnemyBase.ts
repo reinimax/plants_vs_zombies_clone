@@ -19,6 +19,7 @@ export default abstract class EnemyBase
   spriteSheetInfo: Object;
   victoryPoints: number;
   debounce: number;
+  dyingAnimationPlayed: boolean;
 
   constructor(y: number, cellSize: number, canvasManager: CanvasManager) {
     this.canvasManager = canvasManager;
@@ -37,17 +38,19 @@ export default abstract class EnemyBase
     this.spriteSheetInfo = {};
     this.animation = null;
     this.debounce = 0;
+    this.dyingAnimationPlayed = false;
   }
 
   draw() {
-    // todo add dying anmiation
-    if (this.isMoving) {
+    if (this.health <= 0) {
+      this.animation = this.spriteSheetInfo.animationSets.die;
+    } else if (this.isMoving) {
       this.x -= this.speed;
       this.animation = this.spriteSheetInfo.animationSets.move;
     }
     // if the enemy is not moving, it means it reached a defender and should therefore attack
     else {
-      // todo add attack animation
+      this.animation = this.spriteSheetInfo.animationSets.attack;
     }
 
     // debounce animation
@@ -60,9 +63,13 @@ export default abstract class EnemyBase
       // it to 5 and draw index 5 which is actually too big.
       // We could also subtract -1 from numOfSprites in the if-statement to account for starting at 0. maybe this would be
       // most reasonable.
-      this.animation.currentSprite++;
-      if (this.animation.currentSprite >= this.animation.numOfSprites) {
+      if (this.animation.currentSprite >= this.animation.numOfSprites - 1) {
         this.animation.currentSprite = 0;
+        if (this.health <= 0) {
+          this.dyingAnimationPlayed = true;
+        }
+      } else {
+        this.animation.currentSprite++;
       }
     }
 

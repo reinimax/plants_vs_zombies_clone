@@ -26,6 +26,7 @@ let baseHealth = 500;
 // victory points are awarded when an enemy is killed. If enough are reached, the player wins
 let victoryPoints = 0;
 let gameIsRunning = false;
+let dyingEnemies = [];
 
 let once = false; // we used once variable to spawn only one enemy to debug animation
 function generateEnemies() {
@@ -53,7 +54,8 @@ function handleEnemies() {
     if (enemies[i].health <= 0) {
       ressources += enemies[i].worth;
       victoryPoints += enemies[i].victoryPoints;
-      enemies.splice(i, 1);
+      let deadEnemy = enemies.splice(i, 1);
+      dyingEnemies.push(deadEnemy[0]);
       i--;
       continue;
     }
@@ -70,6 +72,17 @@ function handleEnemies() {
       // exact same frame
       i--;
     }
+  }
+}
+
+function handleDyingEnemies() {
+  for (let i = 0; i < dyingEnemies.length; i++) {
+    if (dyingEnemies[i].dyingAnimationPlayed) {
+      dyingEnemies.splice(i, 1);
+      i--;
+      continue;
+    }
+    dyingEnemies[i].draw();
   }
 }
 
@@ -320,6 +333,7 @@ function restartGame(e) {
     // reset game variables
     frames = 0;
     enemies = [];
+    dyingEnemies = [];
     ressources = 300;
     baseHealth = 500;
     victoryPoints = 0;
@@ -436,6 +450,7 @@ function gameLoop() {
   handleEnemies();
   handleCollisions();
   drawEnemies();
+  handleDyingEnemies();
   drawGameInfo();
 
   frames++;

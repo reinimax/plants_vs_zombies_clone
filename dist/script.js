@@ -36,6 +36,7 @@ let baseHealth = 500;
 // victory points are awarded when an enemy is killed. If enough are reached, the player wins
 let victoryPoints = 0;
 let gameIsRunning = false;
+let dyingEnemies = [];
 let once = false; // we used once variable to spawn only one enemy to debug animation
 function generateEnemies() {
     // we add cellsize to account for the uppermost part of the
@@ -60,7 +61,8 @@ function handleEnemies() {
         if (enemies[i].health <= 0) {
             ressources += enemies[i].worth;
             victoryPoints += enemies[i].victoryPoints;
-            enemies.splice(i, 1);
+            let deadEnemy = enemies.splice(i, 1);
+            dyingEnemies.push(deadEnemy[0]);
             i--;
             continue;
         }
@@ -76,6 +78,16 @@ function handleEnemies() {
             // exact same frame
             i--;
         }
+    }
+}
+function handleDyingEnemies() {
+    for (let i = 0; i < dyingEnemies.length; i++) {
+        if (dyingEnemies[i].dyingAnimationPlayed) {
+            dyingEnemies.splice(i, 1);
+            i--;
+            continue;
+        }
+        dyingEnemies[i].draw();
     }
 }
 class Cell {
@@ -286,6 +298,7 @@ function restartGame(e) {
         // reset game variables
         frames = 0;
         enemies = [];
+        dyingEnemies = [];
         ressources = 300;
         baseHealth = 500;
         victoryPoints = 0;
@@ -348,6 +361,7 @@ function gameLoop() {
     handleEnemies();
     handleCollisions();
     drawEnemies();
+    handleDyingEnemies();
     drawGameInfo();
     frames++;
     requestAnimationFrame(gameLoop);
@@ -479,11 +493,27 @@ class Spider extends EnemyBase_1.default {
             animationSets: {
                 move: {
                     numOfSprites: 5,
-                    currentSprite: 99,
+                    currentSprite: -1,
                     startX: 0,
                     startY: 5490,
                     sizeX: 258,
                     sizeY: 258
+                },
+                die: {
+                    numOfSprites: 10,
+                    currentSprite: -1,
+                    startX: 0,
+                    startY: 2940,
+                    sizeX: 258,
+                    sizeY: 258
+                },
+                attack: {
+                    numOfSprites: 15,
+                    currentSprite: -1,
+                    startX: 0,
+                    startY: 0,
+                    sizeX: 258,
+                    sizeY: 194
                 }
             }
         };
@@ -520,16 +550,19 @@ class EnemyBase {
         this.spriteSheetInfo = {};
         this.animation = null;
         this.debounce = 0;
+        this.dyingAnimationPlayed = false;
     }
     draw() {
-        // todo add dying anmiation
-        if (this.isMoving) {
+        if (this.health <= 0) {
+            this.animation = this.spriteSheetInfo.animationSets.die;
+        }
+        else if (this.isMoving) {
             this.x -= this.speed;
             this.animation = this.spriteSheetInfo.animationSets.move;
         }
         // if the enemy is not moving, it means it reached a defender and should therefore attack
         else {
-            // todo add attack animation
+            this.animation = this.spriteSheetInfo.animationSets.attack;
         }
         // debounce animation
         if (this.debounce % 10 === 0) {
@@ -541,9 +574,14 @@ class EnemyBase {
             // it to 5 and draw index 5 which is actually too big.
             // We could also subtract -1 from numOfSprites in the if-statement to account for starting at 0. maybe this would be
             // most reasonable.
-            this.animation.currentSprite++;
-            if (this.animation.currentSprite >= this.animation.numOfSprites) {
+            if (this.animation.currentSprite >= this.animation.numOfSprites - 1) {
                 this.animation.currentSprite = 0;
+                if (this.health <= 0) {
+                    this.dyingAnimationPlayed = true;
+                }
+            }
+            else {
+                this.animation.currentSprite++;
             }
         }
         this.canvasManager.ctx.drawImage(this.spriteSheet, this.animation.startX, this.animation.startY +
