@@ -9,11 +9,11 @@ const container = new ServiceContainer();
 const canvas = document.querySelector('#canvas');
 canvas.width = 600;
 canvas.height = 400;
-const ctx = canvas.getContext('2d');
+//const ctx = canvas.getContext('2d');
 
 container.set('canvasManager', CanvasManager, canvas);
 
-const manager = container.get('canvasManager');
+const canvasManager = container.get('canvasManager');
 
 const cellSize = 50;
 let mouseX = undefined;
@@ -102,20 +102,7 @@ class Enemy {
       this.x -= this.speed;
     }
 
-    //ctx.fillStyle = '#F00';
-    //ctx.fillRect(this.x, this.y, cellSize, cellSize);
-    /*ctx.drawImage(
-      this.spriteSheet,
-      this.frameX,
-      (this.frameY - 15) * this.frameHeight + this.frameOffset,
-      this.frameWidth,
-      this.frameHeight,
-      this.x,
-      this.y,
-      this.width,
-      this.height
-    );*/
-    ctx.drawImage(
+    canvasManager.ctx.drawImage(
       this.spriteSheet,
       this.animation.startX,
       this.animation.startY +
@@ -128,9 +115,10 @@ class Enemy {
       this.height
     );
     // draw health info
-    ctx.fillStyle = '#000';
-    ctx.font = '16px Arial';
-    ctx.fillText(this.health, this.x + 10, this.y + 20);
+    canvasManager.drawText(this.health.toString(), this.x + 10, this.y + 20, {
+      fillStyle: '#000',
+      font: '16px Arial'
+    });
   }
 }
 
@@ -238,7 +226,7 @@ function highlightMouseCell(e) {
 
 // TODO: we can simply loop over the cells array - no need for nested for-loop!
 function drawGrid() {
-  ctx.strokeStyle = '#000';
+  canvasManager.ctx.strokeStyle = '#000';
   for (let x = 0; x < canvas.width; x += cellSize) {
     for (let y = cellSize; y < canvas.height; y += cellSize) {
       // highlight the cell with the cursor
@@ -250,17 +238,17 @@ function drawGrid() {
         mouseY > y &&
         mouseY < y + cellSize
       ) {
-        ctx.strokeStyle = '#0F0';
-        ctx.beginPath();
-        ctx.rect(x, y, cellSize, cellSize);
-        ctx.stroke();
-        ctx.strokeStyle = '#000';
+        canvasManager.ctx.strokeStyle = '#0F0';
+        canvasManager.ctx.beginPath();
+        canvasManager.ctx.rect(x, y, cellSize, cellSize);
+        canvasManager.ctx.stroke();
+        canvasManager.ctx.strokeStyle = '#000';
       }
       // we can use this later if we want to toggle grid on/off
       else {
-        ctx.beginPath();
-        ctx.rect(x, y, cellSize, cellSize);
-        ctx.stroke();
+        canvasManager.ctx.beginPath();
+        canvasManager.ctx.rect(x, y, cellSize, cellSize);
+        canvasManager.ctx.stroke();
       }
     }
   }
@@ -350,7 +338,7 @@ function placeDefender(e) {
     activeCell.width,
     activeCell.height,
     cellSize,
-    ctx
+    canvasManager
   );
   ressources -= Defender.cost;
 
@@ -374,11 +362,11 @@ function detectEnemiesOnRow(row) {
 
 // this function draws all the info about game state
 function drawGameInfo() {
-  ctx.fillStyle = '#000';
-  ctx.font = '20px Arial';
-  ctx.fillText('Ressources: ' + ressources, 10, 30);
-  ctx.fillText('Health of base: ' + baseHealth, 200, 30);
-  ctx.fillText('Victory Points: ' + victoryPoints, 420, 30);
+  //ctx.fillStyle = '#000';
+  //ctx.font = '20px Arial';
+  canvasManager.drawText('Ressources: ' + ressources, 10, 30);
+  canvasManager.drawText('Health of base: ' + baseHealth, 200, 30);
+  canvasManager.drawText('Victory Points: ' + victoryPoints, 420, 30);
 }
 
 // handle collision detection between defenders and enemies
@@ -427,8 +415,8 @@ function restartGame(e) {
   ) {
     gameIsRunning = true;
     // reset the ctx text properties to their default
-    ctx.textBaseline = 'alphabetic';
-    ctx.textAlign = 'start';
+    //ctx.textBaseline = 'alphabetic';
+    //ctx.textAlign = 'start';
     // reset game variables
     frames = 0;
     enemies = [];
@@ -448,57 +436,98 @@ function gameLoop() {
   // check if game is won or lost
   if (baseHealth <= 0) {
     gameIsRunning = false;
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.fillRect(0, 0, 600, 400);
-    ctx.fillStyle = '#FFF';
-    ctx.font = '30px Arial';
-    // center the text
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
+    canvasManager.drawFilledRect(0, 0, 600, 400, {
+      fillStyle: 'rgba(0,0,0,.5)'
+    });
+    const options = {
+      fillStyle: '#FFF',
+      font: '30px Arial',
+      textBaseline: 'middle',
+      textAlign: 'center'
+    };
 
-    ctx.fillText(
+    canvasManager.drawText(
       'The enemies destroyed the base.',
       canvas.width / 2,
-      canvas.height / 2 + 20
+      canvas.height / 2 + 20,
+      options
     );
-    ctx.fillText('The game is lost!', canvas.width / 2, canvas.height / 2 - 20);
+
+    canvasManager.drawText(
+      'The game is lost!',
+      canvas.width / 2,
+      canvas.height / 2 - 20,
+      options
+    );
     // draw restart button
-    ctx.fillStyle = '#FFF';
-    ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 + 80, 120, 40);
-    ctx.fillStyle = '#000';
-    ctx.font = '20px Arial';
-    ctx.fillText('PLAY AGAIN', canvas.width / 2, canvas.height / 2 + 100);
+    canvasManager.drawFilledRect(
+      canvas.width / 2 - 60,
+      canvas.height / 2 + 80,
+      120,
+      40,
+      { fillStyle: '#FFF' }
+    );
+    canvasManager.drawText(
+      'PLAY AGAIN',
+      canvas.width / 2,
+      canvas.height / 2 + 100,
+      {
+        textBaseline: 'middle',
+        textAlign: 'center'
+      }
+    );
     return;
   } else if (victoryPoints >= 100) {
     gameIsRunning = false;
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.fillRect(0, 0, 600, 400);
-    ctx.fillStyle = '#FFF';
-    ctx.font = '30px Arial';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText(
+    canvasManager.drawFilledRect(0, 0, 600, 400, {
+      fillStyle: 'rgba(0,0,0,.5)'
+    });
+    const options = {
+      fillStyle: '#FFF',
+      font: '30px Arial',
+      textBaseline: 'middle',
+      textAlign: 'center'
+    };
+
+    canvasManager.drawText(
       'The enemy forces suffered heavy losses',
       canvas.width / 2,
-      canvas.height / 2 - 40
+      canvas.height / 2 - 40,
+      options
     );
-    ctx.fillText('and are retreating.', canvas.width / 2, canvas.height / 2);
-    ctx.fillText(
+    canvasManager.drawText(
+      'and are retreating.',
+      canvas.width / 2,
+      canvas.height / 2,
+      options
+    );
+    canvasManager.drawText(
       'You are victorious!',
       canvas.width / 2,
-      canvas.height / 2 + 40
+      canvas.height / 2 + 40,
+      options
     );
     // draw restart button
-    ctx.fillStyle = '#FFF';
-    ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 + 80, 120, 40);
-    ctx.fillStyle = '#000';
-    ctx.font = '20px Arial';
-    ctx.fillText('PLAY AGAIN', canvas.width / 2, canvas.height / 2 + 100);
-
+    canvasManager.drawFilledRect(
+      canvas.width / 2 - 60,
+      canvas.height / 2 + 80,
+      120,
+      40,
+      { fillStyle: '#FFF' }
+    );
+    canvasManager.drawText(
+      'PLAY AGAIN',
+      canvas.width / 2,
+      canvas.height / 2 + 100,
+      {
+        textBaseline: 'middle',
+        textAlign: 'center'
+      }
+    );
     return;
   }
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvasManager.ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   drawGrid();
   drawDefenders();
@@ -515,34 +544,39 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-//gameLoop();
-// create the cells once.
-//createCells();
-
 // draw the start screen
-ctx.fillStyle = 'rgba(0,0,0,.5)';
-ctx.fillRect(0, 0, 600, 400);
-ctx.fillStyle = '#FFF';
-ctx.font = '30px Arial';
-ctx.textBaseline = 'middle';
-ctx.textAlign = 'center';
-ctx.fillText(
+canvasManager.drawFilledRect(0, 0, 600, 400, { fillStyle: 'rgba(0,0,0,.5)' });
+const options = {
+  fillStyle: '#FFF',
+  font: '30px Arial',
+  textBaseline: 'middle',
+  textAlign: 'center'
+};
+
+canvasManager.drawText(
   'Enemies are attacking our base!',
   canvas.width / 2,
-  canvas.height / 2 - 40
+  canvas.height / 2 - 40,
+  options
 );
-ctx.font = '20px Arial';
-ctx.fillText(
+canvasManager.drawText(
   'Place defenders with the mouse to defend the base.',
   canvas.width / 2,
-  canvas.height / 2
+  canvas.height / 2,
+  { textBaseline: 'middle', textAlign: 'center', fillStyle: '#FFF' }
 );
 // draw restart button
-ctx.fillStyle = '#FFF';
-ctx.fillRect(canvas.width / 2 - 60, canvas.height / 2 + 80, 120, 40);
-ctx.fillStyle = '#000';
-ctx.font = '20px Arial';
-ctx.fillText('START', canvas.width / 2, canvas.height / 2 + 100);
+canvasManager.drawFilledRect(
+  canvas.width / 2 - 60,
+  canvas.height / 2 + 80,
+  120,
+  40,
+  { fillStyle: '#FFF' }
+);
+canvasManager.drawText('START', canvas.width / 2, canvas.height / 2 + 100, {
+  textBaseline: 'middle',
+  textAlign: 'center'
+});
 
 document.addEventListener('mousemove', highlightMouseCell);
 document.addEventListener('click', placeDefender);

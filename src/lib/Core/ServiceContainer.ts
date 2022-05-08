@@ -10,9 +10,12 @@ export default class ServiceContainer {
     if (typeof this.services.get(name) === 'function') {
       throw new Error(`Key ${name} already exists in the service container.`);
     }
-    this.services.set(name, function hi() {
+    this.services.set(name, function lazyBuilder() {
       // todo: it would be nice to optionally provide a singleton
-      return new service(...params);
+      if (typeof lazyBuilder.instance === 'undefined') {
+        lazyBuilder.instance = new service(...params);
+      }
+      return lazyBuilder.instance;
     });
   }
 

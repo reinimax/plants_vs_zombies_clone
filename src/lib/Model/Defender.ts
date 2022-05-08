@@ -1,3 +1,4 @@
+import CanvasManager from '../Services/CanvasManager';
 import Projectile from './Projectile';
 
 export default class Defender implements GameObjectInterface {
@@ -7,12 +8,12 @@ export default class Defender implements GameObjectInterface {
   height: number;
   row: number;
   static cost = 100;
-  /** Reference to the drawing context */
-  ctx: CanvasRenderingContext2D;
   /** Array holding the projectiles of this defender */
   projectiles: Projectile[];
   health: number;
   damage: number;
+  /** Reference to the CanvasManager */
+  canvasManager: CanvasManager;
 
   constructor(
     x: number,
@@ -20,7 +21,7 @@ export default class Defender implements GameObjectInterface {
     width: number,
     height: number,
     cellSize: number,
-    ctx: CanvasRenderingContext2D
+    canvasManager: CanvasManager
   ) {
     this.health = 100;
     this.damage = 20;
@@ -29,22 +30,26 @@ export default class Defender implements GameObjectInterface {
     this.width = width;
     this.height = height;
     this.row = y / cellSize;
-    this.ctx = ctx;
+    this.canvasManager = canvasManager;
     this.projectiles = [];
   }
 
   draw() {
-    this.ctx.fillStyle = '#00F';
-    this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    this.canvasManager.drawFilledRect(this.x, this.y, this.width, this.height, {
+      fillStyle: '#00F'
+    });
     // draw health info
-    this.ctx.fillStyle = '#000';
-    this.ctx.font = '16px Arial';
-    this.ctx.fillText(this.health.toString(), this.x + 10, this.y + 30);
+    this.canvasManager.drawText(
+      this.health.toString(),
+      this.x + 10,
+      this.y + 30,
+      { fillStyle: '#000', font: '16px Arial' }
+    );
   }
 
   shoot() {
     this.projectiles.push(
-      new Projectile(this.x, this.y, this.damage, this.row, this.ctx)
+      new Projectile(this.x, this.y, this.damage, this.row, this.canvasManager)
     );
   }
 }
