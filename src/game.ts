@@ -1,8 +1,9 @@
 import Defender from './lib/Model/Defender';
-import Spider from './lib/Model/Enemies/Spider';
 
 import ServiceContainer from './lib/Core/ServiceContainer';
 import CanvasManager from './lib/Services/CanvasManager';
+import GameManager from './lib/Services/GameManager';
+import EnemyManager from './lib/Services/EnemyManager';
 
 const container = new ServiceContainer();
 
@@ -10,90 +11,48 @@ const canvas = document.querySelector('#canvas');
 canvas.width = 600;
 canvas.height = 400;
 
+// set container instances and create service classes
 container.set('canvasManager', CanvasManager, canvas);
-const canvasManager = container.get('canvasManager');
+container.set('gameManager', GameManager);
 
-const cellSize = 50;
+const canvasManager = container.get('canvasManager');
+const gameManager = container.get('gameManager');
+
+container.set('enemyManager', EnemyManager, gameManager, canvasManager);
+
+const enemyManager = container.get('enemyManager');
+
+// todo add a gameState object for all the globals?
+
+// manager for
+// - enemies
+// - defenders (+ projectiles)
+// each manager holds the array of objects and has a get method
+// or just one single instance of object manager?
+
+// consider the use of finite state machine
+// - game has essentially four states: won, lost, running, start_screen
+// - enemies and defenders also have states: alive, shooting/attacking, walking, dead/dying
+
+// how can I break this stuff apart?
+// I can break out the user input (note: user input will interact only with cells/defenders for now. later maybe ui and other stuff on a cell)
+// the more I think about it, it makes sense to somewhere manage the cells directly
+// I can break out the drawing stuff
+
+// maybe from an architecural standpoint it doe snot make much sense to separate defenders and enemies - but it would give a better overview
+
 let mouseX = undefined;
 let mouseY = undefined;
 let cells = [];
-//let projectiles = [];
-const numOfRows = 7;
-let enemies = [];
-let ressources = 300;
-// health of the base. If it falls below 0 the game is lost
-let baseHealth = 500;
-// victory points are awarded when an enemy is killed. If enough are reached, the player wins
-let victoryPoints = 0;
-let gameIsRunning = false;
-let dyingEnemies = [];
-
-let once = false; // we used once variable to spawn only one enemy to debug animation
-function generateEnemies() {
-  // we add cellsize to account for the uppermost part of the
-  // canvas that is not part of the gamebord
-  let randomRow = Math.floor(Math.random() * numOfRows) * cellSize + cellSize;
-  if (frames % 150 === 0 && once === false) {
-    enemies.push(new Spider(randomRow, cellSize, canvasManager));
-    //once = true;
-  }
-}
-
-function drawEnemies() {
-  enemies.forEach(enemy => {
-    enemy.draw();
-  });
-}
-
-function handleEnemies() {
-  // if an enemy leaves the board, damage the base and
-  // remove him from the enemies array
-  for (let i = 0; i < enemies.length; i++) {
-    enemies[i].isMoving = true;
-    // remove dead enemies and grant ressources
-    if (enemies[i].health <= 0) {
-      ressources += enemies[i].worth;
-      victoryPoints += enemies[i].victoryPoints;
-      let deadEnemy = enemies.splice(i, 1);
-      dyingEnemies.push(deadEnemy[0]);
-      i--;
-      continue;
-    }
-
-    if (enemies[i].x < 0 - cellSize) {
-      // damage the base
-      baseHealth -= enemies[i].damage;
-      // remove enemy from the array
-      enemies.splice(i, 1);
-      // decrement i because array gets shorter
-      // in practice this should be nigh irrelevant because though
-      // it prevents "jumping" over the next array element, both
-      // elements would need to be outside the gameboard on the
-      // exact same frame
-      i--;
-    }
-  }
-}
-
-function handleDyingEnemies() {
-  for (let i = 0; i < dyingEnemies.length; i++) {
-    if (dyingEnemies[i].dyingAnimationPlayed) {
-      dyingEnemies.splice(i, 1);
-      i--;
-      continue;
-    }
-    dyingEnemies[i].draw();
-  }
-}
 
 class Cell {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.width = cellSize;
-    this.height = cellSize;
+    this.width = gameManager.cellSize;
+    this.height = gameManager.cellSize;
     this.defender = null;
-    this.row = y / cellSize;
+    this.row = y / gameManager.cellSize;
   }
 
   isHoverdOver(x, y) {
@@ -108,8 +67,12 @@ class Cell {
 
 // create the cell objects
 function createCells() {
-  for (let x = 0; x < canvas.width; x += cellSize) {
-    for (let y = cellSize; y < canvas.height; y += cellSize) {
+  for (let x = 0; x < canvas.width; x += gameManager.cellSize) {
+    for (
+      let y = gameManager.cellSize;
+      y < canvas.height;
+      y += gameManager.cellSize
+    ) {
       let cell = new Cell(x, y);
       cells.push(cell);
     }
@@ -119,7 +82,7 @@ function createCells() {
 // TODO: naming of the function is not good. It actually defines mouse position, not highlighting it!
 function highlightMouseCell(e) {
   // only perform this action every 2 frames (primitive debounce).
-  if (frames % 2 === 0) {
+  if (gameManager.frames % 2 === 0) {
     // console.log(e);
     // console.log(canvas);
 
@@ -145,27 +108,41 @@ function highlightMouseCell(e) {
 // TODO: we can simply loop over the cells array - no need for nested for-loop!
 function drawGrid() {
   canvasManager.ctx.strokeStyle = '#000';
-  for (let x = 0; x < canvas.width; x += cellSize) {
-    for (let y = cellSize; y < canvas.height; y += cellSize) {
+  for (let x = 0; x < canvas.width; x += gameManager.cellSize) {
+    for (
+      let y = gameManager.cellSize;
+      y < canvas.height;
+      y += gameManager.cellSize
+    ) {
       // highlight the cell with the cursor
       if (
         mouseX &&
         mouseX > x &&
-        mouseX < x + cellSize &&
+        mouseX < x + gameManager.cellSize &&
         mouseY &&
         mouseY > y &&
-        mouseY < y + cellSize
+        mouseY < y + gameManager.cellSize
       ) {
         canvasManager.ctx.strokeStyle = '#0F0';
         canvasManager.ctx.beginPath();
-        canvasManager.ctx.rect(x, y, cellSize, cellSize);
+        canvasManager.ctx.rect(
+          x,
+          y,
+          gameManager.cellSize,
+          gameManager.cellSize
+        );
         canvasManager.ctx.stroke();
         canvasManager.ctx.strokeStyle = '#000';
       }
       // we can use this later if we want to toggle grid on/off
       else {
         canvasManager.ctx.beginPath();
-        canvasManager.ctx.rect(x, y, cellSize, cellSize);
+        canvasManager.ctx.rect(
+          x,
+          y,
+          gameManager.cellSize,
+          gameManager.cellSize
+        );
         canvasManager.ctx.stroke();
       }
     }
@@ -182,7 +159,7 @@ function drawDefenders() {
       return;
     }
     cell.defender.draw();
-    if (detectEnemiesOnRow(cell.defender.row) && frames % 150 == 0)
+    if (detectEnemiesOnRow(cell.defender.row) && gameManager.frames % 150 == 0)
       cell.defender.shoot();
   });
 }
@@ -201,7 +178,7 @@ function handleProjectiles() {
       }
 
       // we use every here, because we cannot break out of forEach once we found a collision
-      enemies.every(enemy => {
+      enemyManager.enemies.every(enemy => {
         if (
           defender.projectiles[i].x + defender.projectiles[i].width >=
             enemy.x &&
@@ -221,7 +198,7 @@ function handleProjectiles() {
 }
 
 function placeDefender(e) {
-  if (!gameIsRunning) {
+  if (!gameManager.gameIsRunning) {
     return;
   }
 
@@ -236,13 +213,13 @@ function placeDefender(e) {
   }
 
   // check if we can afford the defender
-  if (ressources - Defender.cost < 0) {
+  if (gameManager.ressources - Defender.cost < 0) {
     console.log('not enough ressources');
     return;
   }
 
   // make sure that there is no enemy on the tile
-  let enemyAtTheGates = enemies.filter(enemy => {
+  let enemyAtTheGates = enemyManager.enemies.filter(enemy => {
     return detectRowBasedCollision(activeCell, enemy);
   });
   if (enemyAtTheGates.length > 0) {
@@ -255,10 +232,10 @@ function placeDefender(e) {
     activeCell.y,
     activeCell.width,
     activeCell.height,
-    cellSize,
+    gameManager.cellSize,
     canvasManager
   );
-  ressources -= Defender.cost;
+  gameManager.ressources -= Defender.cost;
 
   console.log(activeCell);
 }
@@ -275,14 +252,18 @@ function getDefendersArray() {
 
 /** Helper that detects if there are enemies on the defender's row */
 function detectEnemiesOnRow(row) {
-  return enemies.some(enemy => enemy.row === row);
+  return enemyManager.enemies.some(enemy => enemy.row === row);
 }
 
 // this function draws all the info about game state
 function drawGameInfo() {
-  canvasManager.drawText('Ressources: ' + ressources, 10, 30);
-  canvasManager.drawText('Health of base: ' + baseHealth, 200, 30);
-  canvasManager.drawText('Victory Points: ' + victoryPoints, 420, 30);
+  canvasManager.drawText('Ressources: ' + gameManager.ressources, 10, 30);
+  canvasManager.drawText('Health of base: ' + gameManager.baseHealth, 200, 30);
+  canvasManager.drawText(
+    'Victory Points: ' + gameManager.victoryPoints,
+    420,
+    30
+  );
 }
 
 // handle collision detection between defenders and enemies
@@ -301,13 +282,13 @@ function handleCollisions() {
 
   if (defenders.length >= 1) {
     defenders.forEach(defender => {
-      enemies.forEach(enemy => {
+      enemyManager.enemies.forEach(enemy => {
         if (detectRowBasedCollision(defender, enemy)) {
           // stop the enemy from moving
           enemy.isMoving = false;
           // reduce the health of the defender
           // (debounce it a bit because it is very fast)
-          if (frames % 5 === 0) defender.health -= 1;
+          if (gameManager.frames % 5 === 0) defender.health -= 1;
           // if the defender is dead, start moving again.
           // defenders are removed in drawDefenders function
           if (defender.health <= 0) enemy.isMoving = true;
@@ -316,39 +297,39 @@ function handleCollisions() {
     });
   } else {
     // if there are no defenders, make sure all enemies are moving
-    enemies.forEach(enemy => (enemy.isMoving = true));
+    enemyManager.enemies.forEach(enemy => (enemy.isMoving = true));
   }
 }
 
 function restartGame(e) {
   // check if we clicked on the button
   if (
-    !gameIsRunning &&
+    !gameManager.gameIsRunning &&
     e.clientX >= canvas.width / 2 - 60 &&
     e.clientX <= canvas.width / 2 + 60 &&
     e.clientY >= canvas.height / 2 + 80 &&
     e.clientY <= canvas.height / 2 + 120
   ) {
-    gameIsRunning = true;
+    gameManager.gameIsRunning = true;
     // reset game variables
-    frames = 0;
-    enemies = [];
-    dyingEnemies = [];
-    ressources = 300;
-    baseHealth = 500;
-    victoryPoints = 0;
+    gameManager.frames = 0;
+    enemyManager.enemies = [];
+    enemyManager.dyingEnemies = [];
+    gameManager.ressources = 300;
+    gameManager.baseHealth = 500;
+    gameManager.victoryPoints = 0;
     cells = [];
     gameLoop();
     createCells();
   }
 }
 
-let frames = 0;
-
 function gameLoop() {
   // check if game is won or lost
-  if (baseHealth <= 0) {
-    gameIsRunning = false;
+  if (gameManager.baseHealth <= 0) {
+    // todo: we have three times more or less the same code. Make this a generic "drawStartEndScreen" or something method
+    // and simply pass in the variable parts, that is text and btn text!
+    gameManager.gameIsRunning = false;
     canvasManager.drawFilledRect(0, 0, 600, 400, {
       fillStyle: 'rgba(0,0,0,.5)'
     });
@@ -390,8 +371,8 @@ function gameLoop() {
       }
     );
     return;
-  } else if (victoryPoints >= 100) {
-    gameIsRunning = false;
+  } else if (gameManager.victoryPoints >= 100) {
+    gameManager.gameIsRunning = false;
     canvasManager.drawFilledRect(0, 0, 600, 400, {
       fillStyle: 'rgba(0,0,0,.5)'
     });
@@ -442,18 +423,22 @@ function gameLoop() {
 
   canvasManager.ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // what do we do here essentially?
+  // we draw stuff: the gameboard itself, the ui, enemies, defenders and projectiles
+  // we "handle" stuff, that is, we do game logic: i.e. collision detection, movement, gaining ressources ...
+
   drawGrid();
   drawDefenders();
   handleProjectiles();
 
-  generateEnemies();
-  handleEnemies();
+  enemyManager.generateEnemies();
+  enemyManager.handleEnemies();
   handleCollisions();
-  drawEnemies();
-  handleDyingEnemies();
+  enemyManager.drawEnemies();
+  enemyManager.handleDyingEnemies();
   drawGameInfo();
 
-  frames++;
+  gameManager.frames++;
 
   requestAnimationFrame(gameLoop);
 }
