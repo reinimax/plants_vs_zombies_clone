@@ -18,17 +18,21 @@ const ServiceContainer_1 = __importDefault(__webpack_require__(/*! ./lib/Core/Se
 const CanvasManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/CanvasManager */ "./src/lib/Services/CanvasManager.ts"));
 const GameManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/GameManager */ "./src/lib/Services/GameManager.ts"));
 const EnemyManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/EnemyManager */ "./src/lib/Services/EnemyManager.ts"));
+const Grid_1 = __importDefault(__webpack_require__(/*! ./lib/Services/Grid */ "./src/lib/Services/Grid.ts"));
+const Input_1 = __importDefault(__webpack_require__(/*! ./lib/Services/Input */ "./src/lib/Services/Input.ts"));
 const container = new ServiceContainer_1.default();
 const canvas = document.querySelector('#canvas');
-canvas.width = 600;
-canvas.height = 400;
 // set container instances and create service classes
 container.set('canvasManager', CanvasManager_1.default, canvas);
 container.set('gameManager', GameManager_1.default);
 const canvasManager = container.get('canvasManager');
 const gameManager = container.get('gameManager');
 container.set('enemyManager', EnemyManager_1.default, gameManager, canvasManager);
+container.set('input', Input_1.default, gameManager, canvas);
 const enemyManager = container.get('enemyManager');
+const input = container.get('input');
+container.set('grid', Grid_1.default, canvasManager, input, gameManager.cellSize);
+const grid = container.get('grid');
 // todo add a gameState object for all the globals?
 // manager for
 // - enemies
@@ -43,86 +47,9 @@ const enemyManager = container.get('enemyManager');
 // the more I think about it, it makes sense to somewhere manage the cells directly
 // I can break out the drawing stuff
 // maybe from an architecural standpoint it doe snot make much sense to separate defenders and enemies - but it would give a better overview
-let mouseX = undefined;
-let mouseY = undefined;
-let cells = [];
-class Cell {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.width = gameManager.cellSize;
-        this.height = gameManager.cellSize;
-        this.defender = null;
-        this.row = y / gameManager.cellSize;
-    }
-    isHoverdOver(x, y) {
-        return (this.x < x &&
-            this.x + this.width > x &&
-            this.y < y &&
-            this.y + this.height > y);
-    }
-}
-// create the cell objects
-function createCells() {
-    for (let x = 0; x < canvas.width; x += gameManager.cellSize) {
-        for (let y = gameManager.cellSize; y < canvas.height; y += gameManager.cellSize) {
-            let cell = new Cell(x, y);
-            cells.push(cell);
-        }
-    }
-}
-// TODO: naming of the function is not good. It actually defines mouse position, not highlighting it!
-function highlightMouseCell(e) {
-    // only perform this action every 2 frames (primitive debounce).
-    if (gameManager.frames % 2 === 0) {
-        // console.log(e);
-        // console.log(canvas);
-        // if the mouse is not inside the canvas, return
-        if (e.clientX - canvas.offsetLeft < 0 || // left
-            e.clientX - canvas.offsetLeft > canvas.width || // right
-            e.clientY - canvas.offsetTop < 0 || // top
-            e.clientY - canvas.offsetTop > canvas.height // bottom
-        ) {
-            mouseX = undefined;
-            mouseY = undefined;
-            return;
-        }
-        mouseX = e.clientX - canvas.offsetLeft;
-        mouseY = e.clientY - canvas.offsetTop;
-        // console.log('mouseX: ' + mouseX);
-        // console.log('mouseY: ' + mouseY);
-    }
-}
-// TODO: we can simply loop over the cells array - no need for nested for-loop!
-function drawGrid() {
-    canvasManager.ctx.strokeStyle = '#000';
-    for (let x = 0; x < canvas.width; x += gameManager.cellSize) {
-        for (let y = gameManager.cellSize; y < canvas.height; y += gameManager.cellSize) {
-            // highlight the cell with the cursor
-            if (mouseX &&
-                mouseX > x &&
-                mouseX < x + gameManager.cellSize &&
-                mouseY &&
-                mouseY > y &&
-                mouseY < y + gameManager.cellSize) {
-                canvasManager.ctx.strokeStyle = '#0F0';
-                canvasManager.ctx.beginPath();
-                canvasManager.ctx.rect(x, y, gameManager.cellSize, gameManager.cellSize);
-                canvasManager.ctx.stroke();
-                canvasManager.ctx.strokeStyle = '#000';
-            }
-            // we can use this later if we want to toggle grid on/off
-            else {
-                canvasManager.ctx.beginPath();
-                canvasManager.ctx.rect(x, y, gameManager.cellSize, gameManager.cellSize);
-                canvasManager.ctx.stroke();
-            }
-        }
-    }
-}
 // actually, we could check when the cells are drawn if the cell has a defender and then handle him.
 function drawDefenders() {
-    let cellsWithDefenders = cells.filter(cell => cell.defender !== null);
+    let cellsWithDefenders = grid.cells.filter(cell => cell.defender !== null);
     cellsWithDefenders.forEach(cell => {
         // if defender health is 0 or below, remove him
         if (cell.defender.health <= 0) {
@@ -166,7 +93,7 @@ function placeDefender(e) {
     if (!gameManager.gameIsRunning) {
         return;
     }
-    let activeCellArr = cells.filter(cell => cell.isHoverdOver(mouseX, mouseY));
+    let activeCellArr = grid.cells.filter(cell => cell.isHoverdOver(input.mouseX, input.mouseY));
     if (activeCellArr.length !== 1)
         return;
     let activeCell = activeCellArr[0];
@@ -193,7 +120,7 @@ function placeDefender(e) {
 }
 /** Helper that returns an array of defender objects. */
 function getDefendersArray() {
-    return cells.reduce(function (defendersArr, cell) {
+    return grid.cells.reduce(function (defendersArr, cell) {
         if (cell.defender !== null) {
             defendersArr.push(cell.defender);
         }
@@ -258,9 +185,8 @@ function restartGame(e) {
         gameManager.ressources = 300;
         gameManager.baseHealth = 500;
         gameManager.victoryPoints = 0;
-        cells = [];
+        grid.reset();
         gameLoop();
-        createCells();
     }
 }
 function gameLoop() {
@@ -314,7 +240,7 @@ function gameLoop() {
     // what do we do here essentially?
     // we draw stuff: the gameboard itself, the ui, enemies, defenders and projectiles
     // we "handle" stuff, that is, we do game logic: i.e. collision detection, movement, gaining ressources ...
-    drawGrid();
+    grid.draw();
     drawDefenders();
     handleProjectiles();
     enemyManager.generateEnemies();
@@ -342,7 +268,7 @@ canvasManager.drawText('START', canvas.width / 2, canvas.height / 2 + 100, {
     textBaseline: 'middle',
     textAlign: 'center'
 });
-document.addEventListener('mousemove', highlightMouseCell);
+document.addEventListener('mousemove', input.setMousePosition);
 document.addEventListener('click', placeDefender);
 document.addEventListener('click', restartGame);
 
@@ -385,6 +311,35 @@ class ServiceContainer {
     }
 }
 exports.default = ServiceContainer;
+
+
+/***/ }),
+
+/***/ "./src/lib/Model/Cell.ts":
+/*!*******************************!*\
+  !*** ./src/lib/Model/Cell.ts ***!
+  \*******************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+class Cell {
+    constructor(x, y, cellSize) {
+        this.x = x;
+        this.y = y;
+        this.width = cellSize;
+        this.height = cellSize;
+        this.defender = null;
+        this.row = y / cellSize;
+    }
+    isHoverdOver(x, y) {
+        return (this.x < x &&
+            this.x + this.width > x &&
+            this.y < y &&
+            this.y + this.height > y);
+    }
+}
+exports.default = Cell;
 
 
 /***/ }),
@@ -599,6 +554,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 class CanvasManager {
     constructor(canvas) {
         this.canvas = canvas;
+        this.canvas.width = 600;
+        this.canvas.height = 400;
         this.ctx = this.canvas.getContext('2d');
     }
     drawText(text, x, y, options = {}) {
@@ -749,6 +706,116 @@ class GameManager {
     }
 }
 exports.default = GameManager;
+
+
+/***/ }),
+
+/***/ "./src/lib/Services/Grid.ts":
+/*!**********************************!*\
+  !*** ./src/lib/Services/Grid.ts ***!
+  \**********************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const Cell_1 = __importDefault(__webpack_require__(/*! ../Model/Cell */ "./src/lib/Model/Cell.ts"));
+class Grid {
+    constructor(canvasManager, input, cellSize) {
+        this.canvasManager = canvasManager;
+        this.input = input;
+        this.cells = [];
+        this.cellSize = cellSize;
+        this.width = this.canvasManager.getCanvasWidth();
+        this.height = this.canvasManager.getCanvasHeight();
+    }
+    createCells() {
+        for (let x = 0; x < this.width; x += this.cellSize) {
+            for (let y = this.cellSize; y < this.height; y += this.cellSize) {
+                let cell = new Cell_1.default(x, y, this.cellSize);
+                this.cells.push(cell);
+            }
+        }
+    }
+    reset() {
+        this.cells = [];
+        this.createCells();
+    }
+    // TODO: we can simply loop over the cells array - no need for nested for-loop!
+    draw() {
+        this.canvasManager.ctx.strokeStyle = '#000';
+        for (let x = 0; x < this.width; x += this.cellSize) {
+            for (let y = this.cellSize; y < this.height; y += this.cellSize) {
+                // highlight the cell with the cursor
+                if (this.input.mouseX &&
+                    this.input.mouseX > x &&
+                    this.input.mouseX < x + this.cellSize &&
+                    this.input.mouseY &&
+                    this.input.mouseY > y &&
+                    this.input.mouseY < y + this.cellSize) {
+                    this.canvasManager.ctx.strokeStyle = '#0F0';
+                    this.canvasManager.ctx.beginPath();
+                    this.canvasManager.ctx.rect(x, y, this.cellSize, this.cellSize);
+                    this.canvasManager.ctx.stroke();
+                    this.canvasManager.ctx.strokeStyle = '#000';
+                }
+                // we can use this later if we want to toggle grid on/off
+                else {
+                    this.canvasManager.ctx.beginPath();
+                    this.canvasManager.ctx.rect(x, y, this.cellSize, this.cellSize);
+                    this.canvasManager.ctx.stroke();
+                }
+            }
+        }
+    }
+}
+exports.default = Grid;
+
+
+/***/ }),
+
+/***/ "./src/lib/Services/Input.ts":
+/*!***********************************!*\
+  !*** ./src/lib/Services/Input.ts ***!
+  \***********************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+class Input {
+    constructor(gameManager, canvas) {
+        this.gameManager = gameManager;
+        this.canvas = canvas;
+        this.mouseX = undefined;
+        this.mouseY = undefined;
+        // since setMousePosition is invoked by an event handler, we must bind this tonot lose it
+        this.setMousePosition = this.setMousePosition.bind(this);
+    }
+    setMousePosition(e) {
+        // only perform this action every 2 frames (primitive debounce).
+        if (this.gameManager.frames % 2 === 0) {
+            // console.log(e);
+            // console.log(canvas);
+            // if the mouse is not inside the canvas, return
+            if (e.clientX - this.canvas.offsetLeft < 0 || // left
+                e.clientX - this.canvas.offsetLeft > this.canvas.width || // right
+                e.clientY - this.canvas.offsetTop < 0 || // top
+                e.clientY - this.canvas.offsetTop > this.canvas.height // bottom
+            ) {
+                this.mouseX = undefined;
+                this.mouseY = undefined;
+                return;
+            }
+            this.mouseX = e.clientX - this.canvas.offsetLeft;
+            this.mouseY = e.clientY - this.canvas.offsetTop;
+            // console.log('mouseX: ' + mouseX);
+            // console.log('mouseY: ' + mouseY);
+        }
+    }
+}
+exports.default = Input;
 
 
 /***/ }),

@@ -4,23 +4,26 @@ import ServiceContainer from './lib/Core/ServiceContainer';
 import CanvasManager from './lib/Services/CanvasManager';
 import GameManager from './lib/Services/GameManager';
 import EnemyManager from './lib/Services/EnemyManager';
+import Grid from './lib/Services/Grid';
+import Input from './lib/Services/Input';
 
 const container = new ServiceContainer();
 
 const canvas = document.querySelector('#canvas');
-canvas.width = 600;
-canvas.height = 400;
 
 // set container instances and create service classes
 container.set('canvasManager', CanvasManager, canvas);
 container.set('gameManager', GameManager);
-
 const canvasManager = container.get('canvasManager');
 const gameManager = container.get('gameManager');
 
 container.set('enemyManager', EnemyManager, gameManager, canvasManager);
-
+container.set('input', Input, gameManager, canvas);
 const enemyManager = container.get('enemyManager');
+const input = container.get('input');
+
+container.set('grid', Grid, canvasManager, input, gameManager.cellSize);
+const grid = container.get('grid');
 
 // todo add a gameState object for all the globals?
 
@@ -41,117 +44,9 @@ const enemyManager = container.get('enemyManager');
 
 // maybe from an architecural standpoint it doe snot make much sense to separate defenders and enemies - but it would give a better overview
 
-let mouseX = undefined;
-let mouseY = undefined;
-let cells = [];
-
-class Cell {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.width = gameManager.cellSize;
-    this.height = gameManager.cellSize;
-    this.defender = null;
-    this.row = y / gameManager.cellSize;
-  }
-
-  isHoverdOver(x, y) {
-    return (
-      this.x < x &&
-      this.x + this.width > x &&
-      this.y < y &&
-      this.y + this.height > y
-    );
-  }
-}
-
-// create the cell objects
-function createCells() {
-  for (let x = 0; x < canvas.width; x += gameManager.cellSize) {
-    for (
-      let y = gameManager.cellSize;
-      y < canvas.height;
-      y += gameManager.cellSize
-    ) {
-      let cell = new Cell(x, y);
-      cells.push(cell);
-    }
-  }
-}
-
-// TODO: naming of the function is not good. It actually defines mouse position, not highlighting it!
-function highlightMouseCell(e) {
-  // only perform this action every 2 frames (primitive debounce).
-  if (gameManager.frames % 2 === 0) {
-    // console.log(e);
-    // console.log(canvas);
-
-    // if the mouse is not inside the canvas, return
-    if (
-      e.clientX - canvas.offsetLeft < 0 || // left
-      e.clientX - canvas.offsetLeft > canvas.width || // right
-      e.clientY - canvas.offsetTop < 0 || // top
-      e.clientY - canvas.offsetTop > canvas.height // bottom
-    ) {
-      mouseX = undefined;
-      mouseY = undefined;
-      return;
-    }
-    mouseX = e.clientX - canvas.offsetLeft;
-    mouseY = e.clientY - canvas.offsetTop;
-
-    // console.log('mouseX: ' + mouseX);
-    // console.log('mouseY: ' + mouseY);
-  }
-}
-
-// TODO: we can simply loop over the cells array - no need for nested for-loop!
-function drawGrid() {
-  canvasManager.ctx.strokeStyle = '#000';
-  for (let x = 0; x < canvas.width; x += gameManager.cellSize) {
-    for (
-      let y = gameManager.cellSize;
-      y < canvas.height;
-      y += gameManager.cellSize
-    ) {
-      // highlight the cell with the cursor
-      if (
-        mouseX &&
-        mouseX > x &&
-        mouseX < x + gameManager.cellSize &&
-        mouseY &&
-        mouseY > y &&
-        mouseY < y + gameManager.cellSize
-      ) {
-        canvasManager.ctx.strokeStyle = '#0F0';
-        canvasManager.ctx.beginPath();
-        canvasManager.ctx.rect(
-          x,
-          y,
-          gameManager.cellSize,
-          gameManager.cellSize
-        );
-        canvasManager.ctx.stroke();
-        canvasManager.ctx.strokeStyle = '#000';
-      }
-      // we can use this later if we want to toggle grid on/off
-      else {
-        canvasManager.ctx.beginPath();
-        canvasManager.ctx.rect(
-          x,
-          y,
-          gameManager.cellSize,
-          gameManager.cellSize
-        );
-        canvasManager.ctx.stroke();
-      }
-    }
-  }
-}
-
 // actually, we could check when the cells are drawn if the cell has a defender and then handle him.
 function drawDefenders() {
-  let cellsWithDefenders = cells.filter(cell => cell.defender !== null);
+  let cellsWithDefenders = grid.cells.filter(cell => cell.defender !== null);
   cellsWithDefenders.forEach(cell => {
     // if defender health is 0 or below, remove him
     if (cell.defender.health <= 0) {
@@ -202,7 +97,9 @@ function placeDefender(e) {
     return;
   }
 
-  let activeCellArr = cells.filter(cell => cell.isHoverdOver(mouseX, mouseY));
+  let activeCellArr = grid.cells.filter(cell =>
+    cell.isHoverdOver(input.mouseX, input.mouseY)
+  );
   if (activeCellArr.length !== 1) return;
 
   let activeCell = activeCellArr[0];
@@ -242,7 +139,7 @@ function placeDefender(e) {
 
 /** Helper that returns an array of defender objects. */
 function getDefendersArray() {
-  return cells.reduce(function(defendersArr, cell) {
+  return grid.cells.reduce(function(defendersArr, cell) {
     if (cell.defender !== null) {
       defendersArr.push(cell.defender);
     }
@@ -318,9 +215,8 @@ function restartGame(e) {
     gameManager.ressources = 300;
     gameManager.baseHealth = 500;
     gameManager.victoryPoints = 0;
-    cells = [];
+    grid.reset();
     gameLoop();
-    createCells();
   }
 }
 
@@ -427,7 +323,7 @@ function gameLoop() {
   // we draw stuff: the gameboard itself, the ui, enemies, defenders and projectiles
   // we "handle" stuff, that is, we do game logic: i.e. collision detection, movement, gaining ressources ...
 
-  drawGrid();
+  grid.draw();
   drawDefenders();
   handleProjectiles();
 
@@ -477,6 +373,6 @@ canvasManager.drawText('START', canvas.width / 2, canvas.height / 2 + 100, {
   textAlign: 'center'
 });
 
-document.addEventListener('mousemove', highlightMouseCell);
+document.addEventListener('mousemove', input.setMousePosition);
 document.addEventListener('click', placeDefender);
 document.addEventListener('click', restartGame);

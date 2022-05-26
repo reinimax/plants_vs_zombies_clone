@@ -7,6 +7,8 @@ export default class CanvasManager {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+    this.canvas.width = 600;
+    this.canvas.height = 400;
     this.ctx = this.canvas.getContext('2d');
   }
 
