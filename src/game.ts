@@ -1,9 +1,10 @@
+import { detectRowBasedCollision } from './lib/utils';
 import Defender from './lib/Model/Defender';
-
 import ServiceContainer from './lib/Core/ServiceContainer';
 import CanvasManager from './lib/Services/CanvasManager';
 import GameManager from './lib/Services/GameManager';
 import EnemyManager from './lib/Services/EnemyManager';
+import DefenderManager from './lib/Services/DefenderManager';
 import Grid from './lib/Services/Grid';
 import Input from './lib/Services/Input';
 
@@ -24,6 +25,15 @@ const input = container.get('input');
 
 container.set('grid', Grid, canvasManager, input, gameManager.cellSize);
 const grid = container.get('grid');
+container.set(
+  'defenderManager',
+  DefenderManager,
+  gameManager,
+  canvasManager,
+  grid,
+  enemyManager
+);
+const defenderManager = container.get('defenderManager');
 
 // todo add a gameState object for all the globals?
 
@@ -44,23 +54,8 @@ const grid = container.get('grid');
 
 // maybe from an architecural standpoint it doe snot make much sense to separate defenders and enemies - but it would give a better overview
 
-// actually, we could check when the cells are drawn if the cell has a defender and then handle him.
-function drawDefenders() {
-  let cellsWithDefenders = grid.cells.filter(cell => cell.defender !== null);
-  cellsWithDefenders.forEach(cell => {
-    // if defender health is 0 or below, remove him
-    if (cell.defender.health <= 0) {
-      cell.defender = null;
-      return;
-    }
-    cell.defender.draw();
-    if (detectEnemiesOnRow(cell.defender.row) && gameManager.frames % 150 == 0)
-      cell.defender.shoot();
-  });
-}
-
 function handleProjectiles() {
-  const defenders = getDefendersArray();
+  const defenders = grid.getDefendersArray();
   defenders.forEach(defender => {
     for (let i = 0; i < defender.projectiles.length; i++) {
       defender.projectiles[i].draw();
@@ -137,21 +132,6 @@ function placeDefender(e) {
   console.log(activeCell);
 }
 
-/** Helper that returns an array of defender objects. */
-function getDefendersArray() {
-  return grid.cells.reduce(function(defendersArr, cell) {
-    if (cell.defender !== null) {
-      defendersArr.push(cell.defender);
-    }
-    return defendersArr;
-  }, []);
-}
-
-/** Helper that detects if there are enemies on the defender's row */
-function detectEnemiesOnRow(row) {
-  return enemyManager.enemies.some(enemy => enemy.row === row);
-}
-
 // this function draws all the info about game state
 function drawGameInfo() {
   canvasManager.drawText('Ressources: ' + gameManager.ressources, 10, 30);
@@ -163,19 +143,8 @@ function drawGameInfo() {
   );
 }
 
-// handle collision detection between defenders and enemies
-function detectRowBasedCollision(defender, enemy) {
-  return (
-    defender.x + defender.width >= enemy.x &&
-    // without this condition, it would not be able to place
-    // defenders to the right of enemies
-    defender.x < enemy.x + enemy.width &&
-    defender.row === enemy.row
-  );
-}
-
 function handleCollisions() {
-  let defenders = getDefendersArray();
+  let defenders = grid.getDefendersArray();
 
   if (defenders.length >= 1) {
     defenders.forEach(defender => {
@@ -324,7 +293,7 @@ function gameLoop() {
   // we "handle" stuff, that is, we do game logic: i.e. collision detection, movement, gaining ressources ...
 
   grid.draw();
-  drawDefenders();
+  defenderManager.drawDefenders();
   handleProjectiles();
 
   enemyManager.generateEnemies();

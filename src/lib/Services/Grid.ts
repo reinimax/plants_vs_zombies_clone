@@ -53,4 +53,14 @@ export default class Grid {
       }
     }
   }
+
+  /** Helper that returns an array of defender objects. */
+  getDefendersArray() {
+    return this.cells.reduce(function(defendersArr, cell) {
+      if (cell.defender !== null) {
+        defendersArr.push(cell.defender);
+      }
+      return defendersArr;
+    }, []);
+  }
 }

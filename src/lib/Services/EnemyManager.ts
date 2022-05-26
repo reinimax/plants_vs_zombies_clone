@@ -76,4 +76,9 @@ export default class EnemyManager {
       this.dyingEnemies[i].draw();
     }
   }
+
+  /** Helper that detects if there are enemies on the defender's row */
+  detectEnemiesOnRow(row) {
+    return this.enemies.some(enemy => enemy.row === row);
+  }
 }

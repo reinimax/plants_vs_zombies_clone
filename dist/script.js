@@ -2,6 +2,32 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./src/lib/utils.js":
+/*!**************************!*\
+  !*** ./src/lib/utils.js ***!
+  \**************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "detectRowBasedCollision": () => (/* binding */ detectRowBasedCollision)
+/* harmony export */ });
+// handle collision detection between defenders and enemies
+function detectRowBasedCollision(defender, enemy) {
+  return (
+    defender.x + defender.width >= enemy.x &&
+    // without this condition, it would not be able to place
+    // defenders to the right of enemies
+    defender.x < enemy.x + enemy.width &&
+    defender.row === enemy.row
+  );
+}
+
+
+
+
+/***/ }),
+
 /***/ "./src/game.ts":
 /*!*********************!*\
   !*** ./src/game.ts ***!
@@ -13,11 +39,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+const utils_1 = __webpack_require__(/*! ./lib/utils */ "./src/lib/utils.js");
 const Defender_1 = __importDefault(__webpack_require__(/*! ./lib/Model/Defender */ "./src/lib/Model/Defender.ts"));
 const ServiceContainer_1 = __importDefault(__webpack_require__(/*! ./lib/Core/ServiceContainer */ "./src/lib/Core/ServiceContainer.ts"));
 const CanvasManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/CanvasManager */ "./src/lib/Services/CanvasManager.ts"));
 const GameManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/GameManager */ "./src/lib/Services/GameManager.ts"));
 const EnemyManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/EnemyManager */ "./src/lib/Services/EnemyManager.ts"));
+const DefenderManager_1 = __importDefault(__webpack_require__(/*! ./lib/Services/DefenderManager */ "./src/lib/Services/DefenderManager.ts"));
 const Grid_1 = __importDefault(__webpack_require__(/*! ./lib/Services/Grid */ "./src/lib/Services/Grid.ts"));
 const Input_1 = __importDefault(__webpack_require__(/*! ./lib/Services/Input */ "./src/lib/Services/Input.ts"));
 const container = new ServiceContainer_1.default();
@@ -33,6 +61,8 @@ const enemyManager = container.get('enemyManager');
 const input = container.get('input');
 container.set('grid', Grid_1.default, canvasManager, input, gameManager.cellSize);
 const grid = container.get('grid');
+container.set('defenderManager', DefenderManager_1.default, gameManager, canvasManager, grid, enemyManager);
+const defenderManager = container.get('defenderManager');
 // todo add a gameState object for all the globals?
 // manager for
 // - enemies
@@ -47,22 +77,8 @@ const grid = container.get('grid');
 // the more I think about it, it makes sense to somewhere manage the cells directly
 // I can break out the drawing stuff
 // maybe from an architecural standpoint it doe snot make much sense to separate defenders and enemies - but it would give a better overview
-// actually, we could check when the cells are drawn if the cell has a defender and then handle him.
-function drawDefenders() {
-    let cellsWithDefenders = grid.cells.filter(cell => cell.defender !== null);
-    cellsWithDefenders.forEach(cell => {
-        // if defender health is 0 or below, remove him
-        if (cell.defender.health <= 0) {
-            cell.defender = null;
-            return;
-        }
-        cell.defender.draw();
-        if (detectEnemiesOnRow(cell.defender.row) && gameManager.frames % 150 == 0)
-            cell.defender.shoot();
-    });
-}
 function handleProjectiles() {
-    const defenders = getDefendersArray();
+    const defenders = grid.getDefendersArray();
     defenders.forEach(defender => {
         for (let i = 0; i < defender.projectiles.length; i++) {
             defender.projectiles[i].draw();
@@ -108,7 +124,7 @@ function placeDefender(e) {
     }
     // make sure that there is no enemy on the tile
     let enemyAtTheGates = enemyManager.enemies.filter(enemy => {
-        return detectRowBasedCollision(activeCell, enemy);
+        return (0, utils_1.detectRowBasedCollision)(activeCell, enemy);
     });
     if (enemyAtTheGates.length > 0) {
         console.log('you cannot place defenders on tiles with enemies!');
@@ -118,39 +134,18 @@ function placeDefender(e) {
     gameManager.ressources -= Defender_1.default.cost;
     console.log(activeCell);
 }
-/** Helper that returns an array of defender objects. */
-function getDefendersArray() {
-    return grid.cells.reduce(function (defendersArr, cell) {
-        if (cell.defender !== null) {
-            defendersArr.push(cell.defender);
-        }
-        return defendersArr;
-    }, []);
-}
-/** Helper that detects if there are enemies on the defender's row */
-function detectEnemiesOnRow(row) {
-    return enemyManager.enemies.some(enemy => enemy.row === row);
-}
 // this function draws all the info about game state
 function drawGameInfo() {
     canvasManager.drawText('Ressources: ' + gameManager.ressources, 10, 30);
     canvasManager.drawText('Health of base: ' + gameManager.baseHealth, 200, 30);
     canvasManager.drawText('Victory Points: ' + gameManager.victoryPoints, 420, 30);
 }
-// handle collision detection between defenders and enemies
-function detectRowBasedCollision(defender, enemy) {
-    return (defender.x + defender.width >= enemy.x &&
-        // without this condition, it would not be able to place
-        // defenders to the right of enemies
-        defender.x < enemy.x + enemy.width &&
-        defender.row === enemy.row);
-}
 function handleCollisions() {
-    let defenders = getDefendersArray();
+    let defenders = grid.getDefendersArray();
     if (defenders.length >= 1) {
         defenders.forEach(defender => {
             enemyManager.enemies.forEach(enemy => {
-                if (detectRowBasedCollision(defender, enemy)) {
+                if ((0, utils_1.detectRowBasedCollision)(defender, enemy)) {
                     // stop the enemy from moving
                     enemy.isMoving = false;
                     // reduce the health of the defender
@@ -241,7 +236,7 @@ function gameLoop() {
     // we draw stuff: the gameboard itself, the ui, enemies, defenders and projectiles
     // we "handle" stuff, that is, we do game logic: i.e. collision detection, movement, gaining ressources ...
     grid.draw();
-    drawDefenders();
+    defenderManager.drawDefenders();
     handleProjectiles();
     enemyManager.generateEnemies();
     enemyManager.handleEnemies();
@@ -606,6 +601,42 @@ exports.default = CanvasManager;
 
 /***/ }),
 
+/***/ "./src/lib/Services/DefenderManager.ts":
+/*!*********************************************!*\
+  !*** ./src/lib/Services/DefenderManager.ts ***!
+  \*********************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+class DefenderManager {
+    constructor(gameManager, canvasManager, grid, enemyManager) {
+        this.gameManager = gameManager;
+        this.canvasManager = canvasManager;
+        this.grid = grid;
+        this.enemyManager = enemyManager;
+    }
+    // actually, we could check when the cells are drawn if the cell has a defender and then handle him.
+    drawDefenders() {
+        let cellsWithDefenders = this.grid.cells.filter(cell => cell.defender !== null);
+        cellsWithDefenders.forEach(cell => {
+            // if defender health is 0 or below, remove him
+            if (cell.defender.health <= 0) {
+                cell.defender = null;
+                return;
+            }
+            cell.defender.draw();
+            if (this.enemyManager.detectEnemiesOnRow(cell.defender.row) &&
+                this.gameManager.frames % 150 == 0)
+                cell.defender.shoot();
+        });
+    }
+}
+exports.default = DefenderManager;
+
+
+/***/ }),
+
 /***/ "./src/lib/Services/EnemyManager.ts":
 /*!******************************************!*\
   !*** ./src/lib/Services/EnemyManager.ts ***!
@@ -677,6 +708,10 @@ class EnemyManager {
             }
             this.dyingEnemies[i].draw();
         }
+    }
+    /** Helper that detects if there are enemies on the defender's row */
+    detectEnemiesOnRow(row) {
+        return this.enemies.some(enemy => enemy.row === row);
     }
 }
 exports.default = EnemyManager;
@@ -770,6 +805,15 @@ class Grid {
             }
         }
     }
+    /** Helper that returns an array of defender objects. */
+    getDefendersArray() {
+        return this.cells.reduce(function (defendersArr, cell) {
+            if (cell.defender !== null) {
+                defendersArr.push(cell.defender);
+            }
+            return defendersArr;
+        }, []);
+    }
 }
 exports.default = Grid;
 
@@ -857,6 +901,18 @@ module.exports = __webpack_require__.p + "07854054d7e745df64b3.png";
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/define property getters */
+/******/ 	(() => {
+/******/ 		// define getter functions for harmony exports
+/******/ 		__webpack_require__.d = (exports, definition) => {
+/******/ 			for(var key in definition) {
+/******/ 				if(__webpack_require__.o(definition, key) && !__webpack_require__.o(exports, key)) {
+/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 				}
+/******/ 			}
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/global */
 /******/ 	(() => {
 /******/ 		__webpack_require__.g = (function() {
@@ -867,6 +923,22 @@ module.exports = __webpack_require__.p + "07854054d7e745df64b3.png";
 /******/ 				if (typeof window === 'object') return window;
 /******/ 			}
 /******/ 		})();
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
+/******/ 	(() => {
+/******/ 		__webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/make namespace object */
+/******/ 	(() => {
+/******/ 		// define __esModule on exports
+/******/ 		__webpack_require__.r = (exports) => {
+/******/ 			if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+/******/ 				Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
+/******/ 			}
+/******/ 			Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 		};
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/publicPath */
